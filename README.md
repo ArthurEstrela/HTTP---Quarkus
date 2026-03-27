@@ -1,67 +1,74 @@
-# sistema-mensagens-distribuido
+# Relatório Técnico: Sistema de Mensagens Distribuído com Quarkus
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Este projeto implementa uma aplicação distribuída simples utilizando o framework Quarkus, explorando o protocolo HTTP como mecanismo de comunicação direta entre processos no modelo client-server.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## 4.1 Arquitetura da Solução
 
-## Running the application in dev mode
+### Fluxo de uma Requisição POST /mensagens
 
-You can run your application in dev mode that enables live coding using:
+O fluxo de comunicação demonstra o modelo de interação entre dois processos distintos na rede:
 
-```shell script
+- Sender (Cliente/Postman):  
+  Atua como o emissor da mensagem. O Postman encapsula os dados da classe Mensagem (id, remetente, conteúdo) em um objeto JSON.  
+  Esta carga útil (payload) é inserida no corpo de uma requisição HTTP.
+
+- Protocolo HTTP:  
+  Funciona como a camada de aplicação que abstrai a complexidade do TCP.  
+  Utiliza cabeçalhos (como Content-Type: application/json) para informar ao destinatário como interpretar os dados recebidos.
+
+- Receiver (Quarkus):  
+  O framework Quarkus atua como o receptor. Ele expõe um endpoint que "escuta" na porta 8080.  
+  Ao receber a requisição, o motor RESTEasy Reactive realiza o unmarshalling (conversão de JSON para objeto Java) e armazena a mensagem em uma lista em memória.
+
+### Mapeamento Teórico (Send e Receive)
+
+As operações do protocolo HTTP mapeiam-se diretamente aos conceitos de comunicação entre processos (IPC):
+
+- POST:  
+  Equivale à primitiva Send. O emissor envia dados para o sistema remoto para alterar seu estado (criar um recurso).
+
+- GET:  
+  Representa uma operação de Request-Reply. O cliente solicita dados e o servidor responde.
+
+- DELETE:  
+  Atua como uma primitiva de Controle/Envio, onde uma instrução de remoção é enviada para sincronizar o estado distribuído.
+
+## 4.2 Evidências de Funcionamento
+
+### Tabela de Testes
+
+| Método | Rota              | Descrição                      | Status HTTP    | Evidência            |
+|--------|-------------------|--------------------------------|----------------|----------------------|
+| POST   | /mensagens        | Criação de uma nova mensagem  | 201 Created    |  ![](src/main/assets/POST.png)   |
+| GET    | /mensagens        | Listagem de mensagens         | 200 OK         |  ![](src/main/assets/LISTAGEM.png)   |
+| GET    | /mensagens/{id}   | Busca por ID existente        | 200 OK         |  ![](src/main/assets/GET.png)   |
+| GET    | /mensagens/{id}   | Busca por ID inexistente      | 404 Not Found  |  ![](src/main/assets/GET_INE.png)   |
+| DELETE | /mensagens/{id}   | Remoção de mensagem           | 204 No Content |  ![](src/main/assets/DELETE.png)   |
+
+### Justificativa dos Status Codes
+
+- 200 OK:  
+  Indica que a requisição GET foi processada com sucesso e os dados estão no corpo da resposta.
+
+- 201 Created:  
+  Confirma que a requisição POST criou um novo recurso no servidor.
+
+- 404 Not Found:  
+  Retornado quando o recurso solicitado não existe (erro lógico de endereçamento).
+
+- 204 No Content:  
+  Indica que a operação DELETE foi bem-sucedida, mas não há conteúdo na resposta.
+
+## Como Executar o Projeto
+
+1. Certifique-se de ter o JDK 17 ou superior instalado.
+
+2. Inicie a aplicação em modo de desenvolvimento:
+
+```bash
 ./mvnw quarkus:dev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
+3. A aplicação estará disponível em:
 
-## Packaging and running the application
-
-The application can be packaged using:
-
-```shell script
-./mvnw package
-```
-
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
-
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
-
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
-```
-
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/sistema-mensagens-distribuido-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Related Guides
-
-- REST ([guide](https://quarkus.io/guides/rest)): A Jakarta REST implementation utilizing build time processing and Vert.x. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it.
-- REST Jackson ([guide](https://quarkus.io/guides/rest#json-serialisation)): Jackson serialization support for Quarkus REST. This extension is not compatible with the quarkus-resteasy extension, or any of the extensions that depend on it
-
-## Provided Code
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+http://localhost:8080
